@@ -1,7 +1,10 @@
 package ru.itis.hamming.algorithm;
 
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Random;
 
 public class Hamming {
@@ -67,6 +70,41 @@ public class Hamming {
         return result.toString();
     }
 
+    public ArrayList<String> convertSymbolsToBits(String source) {
+        ArrayList<String> binaryStrings = new ArrayList<>();
+
+        for (int i = 0; i < source.length(); i++) {
+            StringBuilder temp = new StringBuilder();
+            for (byte b : String.valueOf(source.charAt(i)).getBytes(StandardCharsets.UTF_8)) {
+                temp.append(Integer.toBinaryString(b & 0xFF));
+            }
+            binaryStrings.add(addZeroBits(temp.toString()));
+            temp.setLength(0);
+        }
+
+        return binaryStrings;
+    }
+
+    public String algorithmForAllSymbols(ArrayList<String> symbols) {
+        StringBuilder result = new StringBuilder();
+
+        for (String binSymbol : symbols) {
+            result.append(this.fixControlBits(this.setControlBits(binSymbol)));
+        }
+
+        return result.toString();
+    }
+
+    public void writeToFile(String path, String data) {
+        try (FileWriter writer = new FileWriter(path, false)) {
+            writer.write(data);
+            writer.flush();
+        } catch (IOException ex) {
+
+            System.out.println(ex.getMessage());
+        }
+    }
+
     public String setError(String hammingCode) {
         StringBuilder result = new StringBuilder(hammingCode);
 
@@ -81,6 +119,16 @@ public class Hamming {
 
     private String defineSymbol(String symbol) {
         return symbol.equals("0") ? "1" : "0";
+    }
+
+    private String addZeroBits(String current) {
+        StringBuilder stringBuilder = new StringBuilder(current);
+
+        while (stringBuilder.length() < 32) {
+            stringBuilder.insert(0, "0");
+        }
+
+        return stringBuilder.toString();
     }
 
     public static class Prepare {
@@ -102,16 +150,72 @@ public class Hamming {
 
     public static class Decode {
 
-        private int countControlBits = 0;
+        private int countControlBits = 6;
 
-        public String correctOfBits(String hammingCode) {
-            StringBuilder result = new StringBuilder(hammingCode);
+        public String correctData(String data) {
+            StringBuilder result = new StringBuilder();
 
-            for (int i = 1; i < hammingCode.length(); i++) {
-                if (((i - 1) & i) == 0) {
-                    countControlBits++;
+            for (int i = 0; i < data.length(); i += 32 + 6) {
+                result.append(correctOfBits(data.substring(i, i + 32 + 6)));
+            }
+
+            return result.toString();
+        }
+
+
+        public String restoreInitString(String bytes) {
+            StringBuilder result = new StringBuilder();
+
+
+            for (int i = 0; i < bytes.length(); i += 32) {
+                int code = Integer.parseInt(bytes.substring(i, i + 32), 2);
+                if (code != 10) {
+                    result.append(new String(intToByteArray(code), StandardCharsets.UTF_8).replaceAll("\\u0000", ""));
+                } else {
+                    result.append("\n");
                 }
             }
+
+            return result.toString();
+        }
+
+        public String wrapperRestoreSourceString(String hammingCode) {
+            StringBuilder result = new StringBuilder();
+
+            for (int i = 0; i < hammingCode.length(); i += 32 + 6) {
+                result.append(restoreSourceString(correctOfBits(hammingCode.substring(i, i + 32 + 6))));
+            }
+
+            return result.toString();
+        }
+
+        public String readFile(String path) {
+            StringBuilder result = new StringBuilder();
+            try (FileReader reader = new FileReader(path)) {
+                int c;
+                while ((c = reader.read()) != -1) {
+                    result.append((char) c);
+                }
+            } catch (IOException ex) {
+                System.out.println(ex.getMessage());
+            }
+
+            return result.toString();
+        }
+
+        public void writeToFile(String restoreInitText) {
+            try(FileWriter writer = new FileWriter("./resultDecode.txt", false)) {
+                writer.write(restoreInitText);
+                writer.flush();
+            }
+            catch(IOException ex){
+
+                System.out.println(ex.getMessage());
+            }
+        }
+
+        private String correctOfBits(String hammingCode) {
+            StringBuilder result = new StringBuilder(hammingCode);
 
             int errorSum = 0;
             for (int i = 0; i < countControlBits; i++) {
@@ -154,7 +258,7 @@ public class Hamming {
             return result.toString();
         }
 
-        public String restoreSourceString(String hammingCode) {
+        private String restoreSourceString(String hammingCode) {
             StringBuilder result = new StringBuilder(hammingCode);
 
             int offset = 0;
@@ -166,6 +270,15 @@ public class Hamming {
             }
 
             return result.toString();
+        }
+
+        private byte[] intToByteArray(int num) {
+            byte[] intBytes = new byte[4];
+            intBytes[0] = (byte) (num >>> 24);
+            intBytes[1] = (byte) (num >>> 16);
+            intBytes[2] = (byte) (num >>> 8);
+            intBytes[3] = (byte) num;
+            return intBytes;
         }
 
         private String defineSymbol(String symbol) {

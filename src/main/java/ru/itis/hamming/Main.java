@@ -2,6 +2,11 @@ package ru.itis.hamming;
 
 import ru.itis.hamming.algorithm.Hamming;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Scanner;
+
 public class Main {
 
     private static final Hamming hamming = new Hamming();
@@ -10,23 +15,32 @@ public class Main {
 
     public static void main(String[] args) {
 
-        String source = hammingPrepare.readFile("D:\\Another\\Univercity\\Тесты\\tic-hamming\\src\\main\\test.txt");
+        Scanner scan = new Scanner(System.in);
 
-        String hammingCode = hamming.fixControlBits(hamming.setControlBits(source));
-        String hammingCodeWithError = hamming.setError(hammingCode);
-        String correctDecodedHammingCode = hammingDecode.correctOfBits(hammingCode);
-        String restoredSource = hammingDecode.restoreSourceString(correctDecodedHammingCode);
+        System.out.println("========== Режим работы ===========");
+        System.out.println("1: Кодирование \t ----- \t  2: Декодирование");
+        int mode = scan.nextInt();
 
-        System.out.println("Исходная строка \t\t\t\t\t" + source);
-        System.out.println("Код Хэмминга для исходной строки \t" + hammingCode);
-        System.out.println("Код Хэмминга с возможной ошибкой \t" + hammingCodeWithError);
-        System.out.println("----------- DECODE -------------");
-        System.out.println("Исправленный код Хэммина \t\t\t" + correctDecodedHammingCode);
-        System.out.println("Восстановленная строка \t\t\t\t" + restoredSource);
+        if (mode == 1) {
+            System.out.println("Введите путь до файла с данными: ");
+            String path = scan.next();
 
+            String source = hammingPrepare.readFile(path);
 
-//        StringBuilder stringBuilder = new StringBuilder("qwer");
-//        stringBuilder.delete(0,1);
-//        System.out.println(stringBuilder.toString());
+            ArrayList<String> symbols = hamming.convertSymbolsToBits(source);
+            String hammingCode = hamming.algorithmForAllSymbols(symbols);
+            String erroredCode = hamming.setError(hammingCode);
+
+            hamming.writeToFile("./coderResult.txt", erroredCode);
+        }
+        else if (mode == 2) {
+            String source = hammingDecode.readFile("./coderResult.txt");
+
+            String fixedhammingCode = hammingDecode.correctData(source);
+            String deleteControlBits = hammingDecode.wrapperRestoreSourceString(fixedhammingCode);
+            String restoreInitText = hammingDecode.restoreInitString(deleteControlBits);
+
+            hammingDecode.writeToFile(restoreInitText);
+        }
     }
 }
