@@ -20,6 +20,7 @@ public class Main {
         System.out.println("Исходная строка \t\t\t\t\t" + source);
         System.out.println("Код Хэмминга для исходной строки \t" + hammingCode);
         System.out.println("Код Хэмминга с возможной ошибкой \t" + hammingCodeWithError);
+        System.out.println("----------- DECODE -------------");
         System.out.println("Исправленный код Хэммина \t\t\t" + correctDecodedHammingCode);
         System.out.println("Восстановленная строка \t\t\t\t" + restoredSource);
 
