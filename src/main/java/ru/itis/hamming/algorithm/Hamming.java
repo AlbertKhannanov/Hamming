@@ -5,11 +5,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 public class Hamming {
 
-    private Integer[][] G = new Integer[][]{
+    private final Integer[][] generatorMatrix = new Integer[][]{
             {1, 1, 0, 1},
             {1, 0, 1, 1},
             {1, 0, 0, 0},
@@ -19,7 +18,30 @@ public class Hamming {
             {0, 0, 0, 1}
     };
 
-    public ArrayList<String> convertSymbolsToBits(String source) {
+    public String getHammingCodeForSequence(String sourceData) {
+        StringBuilder result = new StringBuilder();
+
+        ArrayList<String> splitByBits = convertSymbolsToBits(sourceData);
+
+        for (String symbolBits : splitByBits) {
+            for (int i = 0; i < symbolBits.length(); i += 4) {
+                result.append(getHammingCode(symbolBits.substring(i, i + 4)));
+            }
+        }
+
+        return result.toString();
+    }
+
+    public void writeToFile(String path, String data) {
+        try (FileWriter writer = new FileWriter(path, false)) {
+            writer.write(data);
+            writer.flush();
+        } catch (IOException ex) {
+            System.out.println(ex.getMessage());
+        }
+    }
+
+    private ArrayList<String> convertSymbolsToBits(String source) {
         ArrayList<String> binaryStrings = new ArrayList<>();
 
         for (int i = 0; i < source.length(); i++) {
@@ -34,22 +56,10 @@ public class Hamming {
         return binaryStrings;
     }
 
-    public String algorithmForAllSymbols(ArrayList<String> symbols) {
+    private String getHammingCode(String source) {
         StringBuilder result = new StringBuilder();
 
-        for (String binSymbol : symbols) {
-            for (int i = 0; i < binSymbol.length(); i += 4) {
-//                result.append(this.fixControlBits(this.setControlBits(binSymbol.substring(i, i + 4))));
-            }
-        }
-
-        return result.toString();
-    }
-
-    public String getHammingCode(String source) {
-        StringBuilder result = new StringBuilder();
-
-        Integer[] currentSequence = new Integer[]{
+        int[] currentSequence = new int[]{
                 Integer.parseInt(source.substring(0, 1)),
                 Integer.parseInt(source.substring(1, 2)),
                 Integer.parseInt(source.substring(2, 3)),
@@ -66,26 +76,16 @@ public class Hamming {
         return result.toString();
     }
 
-    private int[] matrixToVectorMultiply(Integer[] curSeq) {
+    private int[] matrixToVectorMultiply(int[] curSeq) {
         int[] result = new int[7];
 
-        for (int i = 0; i < G.length; i++) {
-            for(int j = 0; j < curSeq.length; j++) {
-                result[i] += G[i][j] * curSeq[j];
+        for (int i = 0; i < generatorMatrix.length; i++) {
+            for (int j = 0; j < curSeq.length; j++) {
+                result[i] += generatorMatrix[i][j] * curSeq[j];
             }
         }
 
         return result;
-    }
-
-    public void writeToFile(String path, String data) {
-        try (FileWriter writer = new FileWriter(path, false)) {
-            writer.write(data);
-            writer.flush();
-        } catch (IOException ex) {
-
-            System.out.println(ex.getMessage());
-        }
     }
 
     private String addZeroBits(String current) {
@@ -117,22 +117,33 @@ public class Hamming {
 
     public static class Decode {
 
-        private int countControlBits = 3;
+        private final int[][] parityCheckMatrix = new int[][]{
+                {1, 0, 1, 0, 1, 0, 1},
+                {0, 1, 1, 0, 0, 1, 1},
+                {0, 0, 0, 1, 1, 1, 1}
+        };
 
-        public String correctData(String data) {
+        private final int[][] restoreMatrix = new int[][]{
+                {0, 0, 1, 0, 0, 0, 0},
+                {0, 0, 0, 0, 1, 0, 0},
+                {0, 0, 0, 0, 0, 1, 0},
+                {0, 0, 0, 0, 0, 0, 1}
+        };
+
+        public String readHammingCodeAndRestoreSourceData(String hammingCodeSequence) {
             StringBuilder result = new StringBuilder();
 
-            for (int i = 0; i < data.length(); i += 7) {
-                result.append(correctOfBits(data.substring(i, i + 7)));
+            for (int i = 0; i < hammingCodeSequence.length(); i += 7) {
+                result.append(
+                        restoreSourceData(restoreHammingCode(hammingCodeSequence.substring(i, i + 7)))
+                );
             }
 
             return result.toString();
         }
 
-
         public String restoreInitString(String bytes) {
             StringBuilder result = new StringBuilder();
-
 
             for (int i = 0; i < bytes.length(); i += 32) {
                 long code = Long.parseLong(bytes.substring(i, i + 32), 2);
@@ -141,16 +152,6 @@ public class Hamming {
                 } else {
                     result.append("\n");
                 }
-            }
-
-            return result.toString();
-        }
-
-        public String wrapperRestoreSourceString(String hammingCode) {
-            StringBuilder result = new StringBuilder();
-
-            for (int i = 0; i < hammingCode.length(); i += 7) {
-                result.append(restoreSourceString(correctOfBits(hammingCode.substring(i, i + 7))));
             }
 
             return result.toString();
@@ -180,24 +181,70 @@ public class Hamming {
             }
         }
 
-        private String correctOfBits(String hammingCode) {
-            StringBuilder result = new StringBuilder(hammingCode);
+        private String restoreHammingCode(String encoded) {
+            StringBuilder result = new StringBuilder();
+
+            int[] encodedVector = new int[]{
+                    Integer.parseInt(encoded.substring(0, 1)),
+                    Integer.parseInt(encoded.substring(1, 2)),
+                    Integer.parseInt(encoded.substring(2, 3)),
+                    Integer.parseInt(encoded.substring(3, 4)),
+                    Integer.parseInt(encoded.substring(4, 5)),
+                    Integer.parseInt(encoded.substring(5, 6)),
+                    Integer.parseInt(encoded.substring(6, 7)),
+            };
+
+            int[] temp = matrixToVectorMultiply(encodedVector, parityCheckMatrix);
+
+            int errIndex = 0;
+            for (int i = 0; i < temp.length; i++) {
+                if (temp[i] % 2 == 1) {
+                    errIndex += 1 << i; // возводим в степень двойки
+                }
+            }
+
+            if (errIndex != 0)
+                encodedVector[errIndex - 1] = encodedVector[errIndex - 1] == 1 ? 0 : 1;
+
+            for (int i = 0; i < encodedVector.length; i++) {
+                result.append(encodedVector[i]);
+            }
 
             return result.toString();
         }
 
-        private String restoreSourceString(String hammingCode) {
-            StringBuilder result = new StringBuilder(hammingCode);
+        private String restoreSourceData(String hammingCode) {
+            StringBuilder result = new StringBuilder();
 
-            int offset = 0;
-            for (int i = 0; i < result.length(); i++) {
-                if (((i + 1) & i) == 0) {
-                    result.replace(i + offset, i + offset + 1, "");
-                    offset--;
-                }
+            int[] hammingCodeVector = new int[]{
+                    Integer.parseInt(hammingCode.substring(0, 1)),
+                    Integer.parseInt(hammingCode.substring(1, 2)),
+                    Integer.parseInt(hammingCode.substring(2, 3)),
+                    Integer.parseInt(hammingCode.substring(3, 4)),
+                    Integer.parseInt(hammingCode.substring(4, 5)),
+                    Integer.parseInt(hammingCode.substring(5, 6)),
+                    Integer.parseInt(hammingCode.substring(6, 7)),
+            };
+
+            int[] tempResult = matrixToVectorMultiply(hammingCodeVector, restoreMatrix);
+
+            for (int i = 0; i < tempResult.length; i++) {
+                result.append(tempResult[i]);
             }
 
             return result.toString();
+        }
+
+        private int[] matrixToVectorMultiply(int[] vector, int[][] matrix) {
+            int[] result = new int[matrix.length];
+
+            for (int i = 0; i < matrix.length; i++) {
+                for (int j = 0; j < vector.length; j++) {
+                    result[i] += matrix[i][j] * vector[j];
+                }
+            }
+
+            return result;
         }
 
         private byte[] longToByteArray(long num) {
@@ -207,10 +254,6 @@ public class Hamming {
             longBytes[2] = (byte) (num >>> 8);
             longBytes[3] = (byte) num;
             return longBytes;
-        }
-
-        private String defineSymbol(String symbol) {
-            return symbol.equals("0") ? "1" : "0";
         }
     }
 }
