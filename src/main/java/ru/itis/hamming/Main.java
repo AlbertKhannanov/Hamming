@@ -2,7 +2,6 @@ package ru.itis.hamming;
 
 import ru.itis.hamming.algorithm.Hamming;
 
-import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Main {

@@ -44,13 +44,16 @@ public class Hamming {
     private ArrayList<String> convertSymbolsToBits(String source) {
         ArrayList<String> binaryStrings = new ArrayList<>();
 
-        for (int i = 0; i < source.length(); i++) {
+        for (int i = 0; i < source.length();) {
+            int utf8Code = source.codePointAt(i);
             StringBuilder temp = new StringBuilder();
-            for (byte b : String.valueOf(source.charAt(i)).getBytes(StandardCharsets.UTF_8)) {
+            for (byte b : source.substring(i, i + Character.charCount(utf8Code)).getBytes(StandardCharsets.UTF_8)) {
                 temp.append(Integer.toBinaryString(b & 0xFF));
             }
             binaryStrings.add(addZeroBits(temp.toString()));
             temp.setLength(0);
+
+            i += Character.charCount(utf8Code);
         }
 
         return binaryStrings;
